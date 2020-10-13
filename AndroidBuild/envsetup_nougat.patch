@@ -1,0 +1,13 @@
+diff --git a/build/envsetup_old.sh b/build/envsetup.sh
+index 814bcf5..e1c56cf 100644
+--- a/build/envsetup_old.sh
++++ b/build/envsetup.sh
+@@ -139,6 +139,8 @@ function check_product()
+         # Fall back to cm_<product>
+         CM_BUILD=$(echo -n $1 | sed -e 's/^cm_//g')
+         export BUILD_NUMBER=$( (date +%s%N ; echo $CM_BUILD; hostname) | openssl sha1 | sed -e 's/.*=//g; s/ //g' | cut -c1-10 )
++    elif [ ! -z "$CUSTOM_BUILD_NUMBER_USED" ]; then
++        export BUILD_NUMBER="$CUSTOM_BUILD_NUMBER"
+     else
+         CM_BUILD=
+     fi
