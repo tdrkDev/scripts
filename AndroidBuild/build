@@ -1,0 +1,164 @@
+#!/bin/bash
+#
+# Copyright (C) Roman Rihter 2020
+#
+
+BUILD_PATHS=("$HOME/ameizu" "$HOME/asamsung")
+DEVICE_TABLE=("m1721" "s3ve3gxx")
+ROM_LUNCH_PREFIXES=("lineage_")
+AVALIBLE_BUILD_VARIANTS=("eng" "userdebug" "user")
+
+#
+# Requires patched build/envsetup.sh!
+# Patch: github.com/tdrkDev/scripts/blob/master/AndroidBuild/envsetup-nougat.patch
+#
+CUSTOM_BUILD_NUMBER_STATE="true"
+CUSTOM_BUILD_NUMBER="MS v3.0a: Camera fix"
+
+#
+# Old Android building configs
+#
+THREADS="4"                                   # Building threads
+JAVA_HOME="/usr/lib/jvm/java-8-openjdk-amd64" # Old Google's prebuilt Java for Android home
+PYTHON_VENV_DIR="$HOME/venv"                  # Python 2.7 virtual enviroment directory
+
+function error() {
+  return 1
+}
+
+LOG_TAG="undefined"
+
+function log() {
+  if [ -z "$1" ] || [ -z "$2" ]; then
+    echo "[@bin/build: log] Not enough arguments."
+  fi
+
+  if [ "$1" = "tag" ]; then
+    LOG_TAG="$2"
+    return 0
+  fi
+
+  echo -e $trst"[$LOG_TAG: $1] $2"$trst
+
+  return 0
+}
+
+. /etc/init.d/functions
+. $HOME/bin/colors
+
+log tag "@bin/build"
+
+loge() { action "$(log $1 "$2")" error; }
+logee() { action "$(log $1 "$2")" error; exit 1; }
+
+function configurator() {
+  for ((a=0;$a<${#DEVICE_TABLE[@]};a++)); do
+    for ((b=0;$b<${#ROM_LUNCH_PREFIXES[@]};b++)); do
+      for ((c=0;$c<${#AVALIBLE_BUILD_VARIANTS[@]};c++)); do
+        ALLBUILDVARIANTS+=("${ROM_LUNCH_PREFIXES[$b]}${DEVICE_TABLE[$a]}-${AVALIBLE_BUILD_VARIANTS[$c]}")
+      done
+    done
+  done
+
+  for ((d=0;$d<${#ALLBUILDVARIANTS[@]};d++)); do
+    echo $fy"Device #$(expr $d + 1):$trst ${ALLBUILDVARIANTS[$d]}"$trst
+  done
+  echo
+  echo $trst"Please, choose one:"$trst
+  echo -n $fy"@bin/build> "$trst
+  read choice
+  [ -z "$choice" ] && logee config "No device specified."
+  for ((d=0;$d<${#ALLBUILDVARIANTS[@]};d++)); do
+    if [ "$choice" = "${ALLBUILDVARIANTS[$d]}" ] || [ "$(expr $choice - 1 2>/dev/null)" = "$d" ]; then
+      CHOSENDEVICE="${ALLBUILDVARIANTS[$d]}"
+      break
+    fi
+  done
+
+  if [ -z $CHOSENDEVICE ]; then
+    logee config "Device $choice not found."
+  fi
+}
+
+function configure() {
+  echo $fy"Welcome!$trst Choose your device, please:"$trst
+  if [ -f $HOME/.build_device.last ]; then
+    LASTDEVICE="$(cat $HOME/.build_device.last)"
+    echo $fy"Last device:"$trst" $LASTDEVICE. Will we use it? (Y/n)"$trst
+    echo -n $fy"@bin/build> "$trst
+    read choice
+    case "$choice" in
+    n|N) echo $trst"Ok, let's$fy choose other device..."$trst
+    configurator
+    ;;
+    *) CHOSENDEVICE="$LASTDEVICE"
+    ;;
+    esac
+  else
+    configurator
+  fi
+
+  echo "$CHOSENDEVICE" > $HOME/.build_device.last
+
+  echo $trst"Device "$fy$CHOSENDEVICE$trst" was chosen."
+
+  return 0
+}
+
+function setsrcdir() {
+  if [ "$1" = "variable" ]; then
+    for ((i=0;$i<${#DEVICE_TABLE[@]};i++)); do
+      if [ $(echo $CHOSENDEVICE | grep "${DEVICE_TABLE[$i]}" 2>/dev/null >/dev/null && echo $?) = 0 ]; then
+        DEVICEDIR="${BUILD_PATHS[$i]}"
+        break
+      fi
+    done
+  else
+    for i in ${#DEVICE_TABLE[@]}; do
+      if [ $(echo $CHOSENDEVICE | grep "${DEVICE_TABLE[$i]}" 2>/dev/null >/dev/null && echo $?) = 0 ]; then
+        cd "${BUILD_PATHS[$i]}" && break
+      fi
+    done
+  fi
+}
+
+function buildconfig() {
+  [ ! -f $DEVICEDIR/build/envsetup.sh ] && logee build "envsetup.sh not found!"
+
+  log build "Starting envsetup..."
+  cd $DEVICEDIR && source build/envsetup.sh >/dev/null
+
+  log build "Overwriting necessary build variables..."
+  export LC_ALL=C
+  export USE_CCACHE=true
+  export CCACHE_SIZE=50G
+  [ ! -d $HOME/.cachebuild ] && mkdir $HOME/.cachebuild
+  export CCACHE_DIR="$HOME/.cachebuild"
+  export _JAVA_OPTIONS="-Xmx4G"
+  export JACK_SERVER_VM_ARGUMENTS="-Dfile.encoding=UTF-8 -XX:+TieredCompilation -Xmx4G"
+  [ ! -d $PYTHON_VENV_DIR ] && logee build "Please create Python 2.7 virtualenv in $PYTHON_VENV_DIR."
+  export PATH="$JAVA_HOME/bin:$PYTHON_VENV_DIR/bin:$PATH"
+  export ANDROID_JAVA_HOME=$JAVA_HOME
+  export JAVA_HOME
+
+  log build "Starting ccache..."
+  ccache -M 50G >/dev/null || logee build "Failed starting ccache!"
+
+  log build "Eat a lunch..."
+  cd $DEVICEDIR && lunch $CHOSENDEVICE || logee build "Failed eating lunch!"
+}
+
+function build() {
+  [ "$1" = "ic" ] && cd $DEVICEDIR && make installclean
+  [ "$1" = "c" ] && cd $DEVICEDIR && make clean
+
+  cd $DEVICEDIR && make bacon -j$THREADS
+}
+
+# [ -z "$1" ] && 1="null" # I am lazy to add check in all functions
+
+[ -z "$1" ] && echo $fb"Note:$fw Avalible arguments:$fy c, ic, config"$rst
+configure
+setsrcdir variable
+buildconfig
+[ "$1" != "config" ] && build

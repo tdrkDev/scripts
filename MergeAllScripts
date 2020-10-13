@@ -1,0 +1,46 @@
+#!/bin/bash
+#
+# Copyright (C) Roman Rihter 2020
+#
+
+SCRIPT_DIRS=("AndroidBuild" "Reconfigured" "Common")
+IGNORE_FILE="README.md"
+
+function getFilesReady() {
+  for ((i=0;$i<${#SCRIPT_DIRS[@]};i++)); do
+    [ ! -z "$PVAL" ] && PVAL="$PVAL${SCRIPT_DIRS[$i]}/$(ls ${SCRIPT_DIRS[$i]})\n"
+    [ -z "$PVAL" ] && PVAL="${SCRIPT_DIRS[$i]}/$(ls ${SCRIPT_DIRS[$i]})\n"
+    for d in $(ls ${SCRIPT_DIRS[$i]}); do
+      FVAL+=("$b")
+    done
+  done
+
+  echo "All files:"
+  echo -e "$PVAL"
+}
+
+function cutUnneededFiles() {
+  for b in $(echo -ne $PVAL); do
+    if [ "$b" != "$IGNORE_FILE" ]; then
+      RVAL+=("$b")
+    fi
+  done
+}
+
+function copyNeededFiles() {
+  [ -d merged ] && rm -rf merged
+  [ ! -d merged ] && mkdir merged
+  for ((i=0;$i<${#RVAL[@]};i++)); do
+    cp ${RVAL[$i]} merged/${FVAL[$i]}
+  done
+}
+
+function listCopiedFiles() {
+  echo "Files in $PWD/merged:"
+  ls merged
+}
+
+getFilesReady
+cutUnneededFiles
+copyNeededFiles
+listCopiedFiles

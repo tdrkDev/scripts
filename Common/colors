@@ -1,0 +1,30 @@
+#!/bin/bash
+#
+# Copyright (C) Roman Rihter 2020
+#
+
+fB="$(tput setaf 0)"
+fr="$(tput setaf 1)"
+fg="$(tput setaf 2)"
+fy="$(tput setaf 3)"
+fb="$(tput setaf 4)"
+fm="$(tput setaf 5)"
+fc="$(tput setaf 6)"
+fw="$(tput setaf 7)"
+bB="$(tput setab 0)"
+br="$(tput setab 1)"
+bg="$(tput setab 2)"
+by="$(tput setab 3)"
+bb="$(tput setab 4)"
+bm="$(tput setab 5)"
+bc="$(tput setab 6)"
+bw="$(tput setab 7)"
+tb="$(tput bold)"
+td="$(tput dim)"
+tue="$(tput smul)"
+tud="$(tput rmul)"
+trev="$(tput rev)"
+tse="$(tput smso)"
+tsd="$(tput rmso)"
+trst="$(tput sgr0)"
+beep="$(tput bel)"
